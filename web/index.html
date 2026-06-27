@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>媒体内容采集 · Top 5</title>
+<style>
+  :root{--bg:#f5f5f7;--card:#fff;--line:#e3e3e3;--ink:#1d1d1f;--sub:#86868b;--accent:#0066cc}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       background:var(--bg);color:var(--ink);margin:0;padding:32px}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--sub);font-size:13px;margin-bottom:20px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:18px}
+  textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:14px;
+           font-family:inherit;resize:vertical;min-height:62px}
+  .row{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  select,button{font-size:14px;border-radius:8px;border:1px solid var(--line);padding:8px 14px}
+  button{background:var(--accent);color:#fff;border:none;cursor:pointer;font-weight:600}
+  button:disabled{opacity:.5;cursor:default}
+  .meta{color:var(--sub);font-size:12px;margin:6px 0 14px}
+  .kw{display:inline-block;background:#eef3fb;color:#34589c;border-radius:999px;
+      padding:2px 10px;margin:2px;font-size:12px}
+  table{border-collapse:collapse;width:100%;font-size:13px;background:var(--card);
+        border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:#fafafa;font-weight:600;color:#444}
+  .num{text-align:right;white-space:nowrap}
+  .rk{font-weight:700;color:var(--accent)}
+  a{color:var(--accent);text-decoration:none}
+  .small{color:var(--sub);font-size:12px;margin-top:3px}
+  .err{color:#c0392b}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>媒体内容采集 · Top 5</h1>
+  <div class="sub">输入一段健身内容方向的自然语言需求，自动发现 → 筛选 → LLM 去重排序 → Top 5</div>
+
+  <div class="panel">
+    <textarea id="q" placeholder="例如：我想找做居家健身、减脂跟练、高蛋白饮食方向、粉丝量较大的内容创作者">我想找做居家健身、减脂训练和高蛋白饮食方向的优质内容创作者</textarea>
+    <div class="row">
+      <label>数据源
+        <select id="provider">
+          <option value="">（用配置默认）</option>
+          <option value="mock">mock（离线演示）</option>
+          <option value="youtube">youtube（真实）</option>
+        </select>
+      </label>
+      <button id="go" onclick="search()">开始采集</button>
+      <span id="status" class="meta"></span>
+    </div>
+  </div>
+
+  <div id="kw"></div>
+  <div id="out"></div>
+</div>
+
+<script>
+async function search(){
+  const q = document.getElementById('q').value.trim();
+  const provider = document.getElementById('provider').value;
+  const btn = document.getElementById('go');
+  const status = document.getElementById('status');
+  const out = document.getElementById('out');
+  const kw = document.getElementById('kw');
+  if(!q){ status.textContent = '请输入查询'; return; }
+  btn.disabled = true; status.textContent = '采集中…'; out.innerHTML=''; kw.innerHTML='';
+  try{
+    const body = new URLSearchParams({query:q, provider});
+    const r = await fetch('/api/search',{method:'POST',body});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d = await r.json();
+    const s = d.stats||{};
+    status.innerHTML = `源:${s.provider} · 模型:${s.llm_model} · 召回${s.recalled}→筛后${s.after_filter}→返回${s.returned}`;
+    kw.innerHTML = '关键词：' + (d.keywords||[]).map(k=>`<span class="kw">${esc(k)}</span>`).join('');
+    out.innerHTML = render(d.results||[]);
+  }catch(e){
+    status.innerHTML = '<span class="err">出错：'+esc(e.message)+'（真实源需配置 .env 的 key）</span>';
+  }finally{ btn.disabled=false; }
+}
+function render(rows){
+  if(!rows.length) return '<div class="meta">无结果</div>';
+  const body = rows.map(r=>`<tr>
+    <td class="rk">#${r.rank}</td>
+    <td><a href="${esc(r.account_url)}" target="_blank">${esc(r.account_name)}</a>
+        <div class="small">${esc((r.account_bio||'').slice(0,70))}</div></td>
+    <td><a href="${esc(r.content_url)}" target="_blank">${esc(r.content_title)}</a>
+        <div class="small">${esc(r.reason||'')}</div></td>
+    <td class="num">${fmt(r.followers)}</td>
+    <td class="num">${fmt(r.views)}</td>
+    <td class="num">${fmt(r.likes)}</td>
+    <td>${esc((r.published_at||'').slice(0,10))}</td>
+    <td class="num">${(r.relevance_score||0).toFixed(3)}</td>
+  </tr>`).join('');
+  return `<table><thead><tr>
+    <th>#</th><th>账号</th><th>内容</th>
+    <th class="num">粉丝</th><th class="num">播放</th><th class="num">点赞</th>
+    <th>发布</th><th class="num">相关性</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+function fmt(n){ return (n||0).toLocaleString(); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+</script>
+</body>
+</html>

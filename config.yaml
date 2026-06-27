@@ -1,0 +1,64 @@
+# ============================================================
+# Media Scraper 配置 —— 所有阈值/开关/权重集中在此，运营/工程可直接改
+# ============================================================
+
+# 数据来源：mock(无网络，自测) | youtube(真实 Data API v3)
+provider: mock
+
+# ---- 召回（query → 候选）----
+recall:
+  keyword_groups: 5        # LLM 把 query 扩成多少组关键词（中英文混合）
+  per_keyword: 10          # 每组关键词召回多少条视频
+  max_candidates: 40       # 召回并集后保留的候选上限（控配额/控 token）
+  published_within_days: 0 # >0 时在 API 侧用 publishedAfter 预过滤；0=不预过滤
+
+# ---- 规则筛选（先于 LLM，便宜，可逐条开关）----
+filters:
+  account:
+    min_followers:
+      enabled: true
+      value: 10000
+    last_post_within_days:
+      enabled: true
+      value: 30
+  content:
+    min_views:
+      enabled: true
+      value: 1000
+    min_likes:
+      enabled: true
+      value: 100
+
+# ---- 去重折叠 ----
+dedup:
+  fold_by_creator: true    # 同一账号只保留最相关的一条视频（混合榜：5 条=5 个账号）
+  allow_same_account: false
+
+# ---- 排序：语义相关性(rubric) 与 客观热度/质量 融合 ----
+# 下面 weights 的调整依据记录在 feedback/rubric-feedback.md（反馈调参日志）
+ranking:
+  top_k: 5
+  weights:
+    semantic: 0.6          # LLM rubric 命中比例
+    popularity: 0.4        # 客观信号（views/likes/followers/recency 归一）
+  # 客观分内部各信号权重（会再归一）
+  popularity_signals:
+    views: 0.35
+    likes: 0.30
+    followers: 0.20
+    recency: 0.15
+  # 语义相关性 rubric 维度（每维 LLM 判 Yes/No，命中比例即语义分）
+  rubric:
+    - "主题契合：内容主题与 query 描述的方向一致"
+    - "受众匹配：目标受众与 query 想触达的人群一致"
+    - "内容形式匹配：呈现形式(教学/vlog/带货等)符合 query 期待"
+    - "专业可信：账号在该领域有可见的专业度或垂直度"
+
+# ---- 不足 Top5 时的策略：return_fewer | relax_filters ----
+shortfall_strategy: return_fewer
+
+# ---- LLM ----
+llm:
+  temperature: 0.2
+  max_tokens: 2048
+  timeout_s: 60
