@@ -9,7 +9,7 @@ provider: mock
 recall:
   keyword_groups: 5        # LLM 把 query 扩成多少组关键词（中英文混合）
   per_keyword: 10          # 每组关键词召回多少条视频
-  max_candidates: 40       # 召回并集后保留的候选上限（控配额/控 token）
+  max_candidates: 20       # 召回并集后保留的候选上限（控配额/控 token；直接决定 LLM 单次排序规模）
   published_within_days: 0 # >0 时在 API 侧用 publishedAfter 预过滤；0=不预过滤
 
 # ---- 规则筛选（先于 LLM，便宜，可逐条开关）----
@@ -19,8 +19,8 @@ filters:
       enabled: true
       value: 10000
     last_post_within_days:
-      enabled: true
-      value: 30
+      enabled: false         # 暂关：该字段取的是「视频发布日」而非「账号最近发布」(adapter bug)，
+      value: 365             #       真实数据下会误杀活跃号的老视频。正确修法(查频道最新上传)见 feedback 日志
   content:
     min_views:
       enabled: true
@@ -55,10 +55,10 @@ ranking:
     - "专业可信：账号在该领域有可见的专业度或垂直度"
 
 # ---- 不足 Top5 时的策略：return_fewer | relax_filters ----
-shortfall_strategy: return_fewer
+shortfall_strategy: relax_filters
 
 # ---- LLM ----
 llm:
   temperature: 0.2
-  max_tokens: 2048
-  timeout_s: 60
+  max_tokens: 4096         # 单次排序可能含 ~20 候选，留足输出 token 防 JSON 截断
+  timeout_s: 120

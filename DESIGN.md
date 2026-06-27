@@ -39,6 +39,7 @@
 - **token 开销** → 候选批量喂入而非逐条；相关性 + 去重合并为一次调用；只对规则幸存者跑 LLM。
 - **LLM 返回不稳定** → `chat_json` 强制 JSON 并带容错解析（剥 ``` 围栏 / 抓首个 JSON 块）。
 - **开发期无法联网验证** → 加 `MockAdapter`（本地 fixture）+ `StubLLMClient`（启发式打桩），`LLM_STUB=1 --provider mock` 可在无 key/无网络下端到端跑通逻辑；真实链路一条命令切换。
+- **真实 YouTube 数据下 Top5 只剩 1 条**（mock 验不出）→ 定位为 `last_post_within_days` 误杀：adapter 把 `account_last_post_at` 取成了「候选视频自己的发布日期」而非「账号最近一次上传」，而 search 返回任意年龄的相关视频，于是活跃大号的老爆款被当成僵尸号筛掉（40 条全死在这条规则）。**当前修法（配置）**：关闭该过滤 + 召回上限收窄到 20 + 放宽 LLM `timeout/max_tokens`，真实数据稳定出满 Top5。**正确修法（留作 v2）**：adapter 用 `playlistItems.list` 查频道 uploads 的真实最新上传日期填 `account_last_post_at`，让活跃度过滤名副其实。
 
 ## 6. 扩展到全部平台会怎么设计
 
