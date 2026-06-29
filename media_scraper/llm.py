@@ -25,7 +25,7 @@ class LLMClient:
     def __init__(self, cfg: dict[str, Any] | None = None):
         cfg = cfg or {}
         self.base_url = (env("LLM_BASE_URL") or "https://api.siliconflow.cn/v1").rstrip("/")
-        self.model = env("LLM_MODEL") or "deepseek-ai/DeepSeek-V4-Pro"
+        self.model = env("LLM_MODEL") or "deepseek-ai/DeepSeek-V4-Flash"
         self.api_key = env("SILICONFLOW_API_KEY") or env("LLM_API_KEY") or ""
         self.temperature = cfg.get("temperature", 0.2)
         self.max_tokens = cfg.get("max_tokens", 2048)
