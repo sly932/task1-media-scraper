@@ -16,6 +16,17 @@ Top 5 ──► JSON / CSV / HTML + Web UI
 
 ## 快速开始
 
+一键脚本（自动建 venv / 装依赖 / 起服务）：
+
+```bash
+./start.sh                       # 启动 Web UI -> http://127.0.0.1:8000
+./start.sh "想找居家健身方向的创作者"   # 跑一条真实 YouTube 查询
+PROVIDER=mock ./start.sh "..."           # 真 LLM + 假数据，不耗 YouTube 配额
+LLM_STUB=1 PROVIDER=mock ./start.sh "..."  # 全离线，不耗任何 key
+```
+
+或手动：
+
 ```bash
 pip install -r requirements.txt
 cp .env.example .env        # 填入 key（见下）
